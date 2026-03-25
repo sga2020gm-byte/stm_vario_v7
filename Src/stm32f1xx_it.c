@@ -184,15 +184,15 @@ void SysTick_Handler(void)
 {
   /* USER CODE BEGIN SysTick_IRQn 0 */
 extern uint32_t systick_counter;
-extern void (*callback_30ms)(void);  // Указатель на вашу функцию
+extern void (*callback_baro)(void);  // Указатель на функцию опроса барометра
   /* USER CODE END SysTick_IRQn 0 */
   HAL_IncTick();
   /* USER CODE BEGIN SysTick_IRQn 1 */
   systick_counter++;
 
-  if ((systick_counter % 20) == 0) {
-      if (callback_30ms != NULL) {
-          callback_30ms();
+  if ((systick_counter % 8) == 0) { // 8 ms ~= 125 Гц, близко к PM_RATE=128 Гц
+      if (callback_baro != NULL) {
+          callback_baro();
       }
   }
   /* USER CODE END SysTick_IRQn 1 */

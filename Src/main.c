@@ -91,17 +91,18 @@ uint8_t q_count = 0;
 uint32_t cb_cnt = 0;
 uint8_t baro_id = 0;
 volatile uint32_t systick_counter;
-void (*callback_30ms)(void) = NULL;
+void (*callback_baro)(void) = NULL;
 uint8_t baro_flag;
+uint8_t baro_init_ok = 0;
 /**
   * @brief  The application entry point.
   * @retval int
   */
-void init_30ms_callback(void (*func)(void)) {
-    callback_30ms = func;
+void init_baro_callback(void (*func)(void)) {
+    callback_baro = func;
 }
 
-void my_30ms_function(void) {
+void baro_poll_callback(void) {
     // Ваш код здесь
 	if (HAL_GetTick()>1000){
 	climb_calc(&altitude, &climb);
@@ -146,11 +147,17 @@ int main(void)
   MX_SPI1_Init();
   MX_TIM1_Init();
   MX_USART3_UART_Init();
-  spl06_Init();
-  HAL_Delay(10);
-  	spl06_SetOSR(RATE_X8, RATE_X8);
-  	spl06_SetMode(MODE_BACKGND_BOTH);
-  	filter_init();
+  for (uint8_t i = 0; i < 5; i++){
+	  if (spl06_Init() == OK &&
+	      spl06_SetOSR(SAMPLING_X1, SAMPLING_X1) == OK &&
+	      spl06_SetMode(MODE_BACKGND_BOTH) == OK &&
+	      spl06_ID_read() == 16){
+		  baro_init_ok = 1;
+		  break;
+	  }
+	  HAL_Delay(50);
+  }
+  filter_init();
   /* USER CODE BEGIN 2 */
 
 
@@ -164,7 +171,7 @@ int main(void)
   	HAL_Delay(10);
   	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_13, 1);
 
-  	init_30ms_callback(my_30ms_function);
+  	init_baro_callback(baro_poll_callback);
 
 
 
@@ -174,13 +181,19 @@ int main(void)
 	}*/
 
 
-  	if(pascalToCentimeter(spl06_ReadPressure())>500000){
+  	if(!baro_init_ok || pascalToCentimeter(spl06_ReadPressure())>500000){
   		epd_paint_showString(10, 85, "BAD PRES", 25, EPD_COLOR_BLACK);
   		epd_paint_showString(10, 120, "TRY AGN", 25, EPD_COLOR_BLACK);
   		epd_displayBW_partial(image_bw);
-  		spl06_Init();
-  	  	spl06_SetOSR(RATE_X8, RATE_X8);
-  	  	spl06_SetMode(MODE_BACKGND_BOTH);
+  		for (uint8_t i = 0; i < 5; i++){
+  			if (spl06_Init() == OK &&
+  			    spl06_SetOSR(SAMPLING_X1, SAMPLING_X1) == OK &&
+  			    spl06_SetMode(MODE_BACKGND_BOTH) == OK){
+  				baro_init_ok = 1;
+  				break;
+  			}
+  			HAL_Delay(50);
+  		}
   	  	HAL_Delay(800);
   	}
 
