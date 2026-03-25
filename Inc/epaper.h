@@ -79,6 +79,8 @@ extern "C"
     void epd_paint_drawLine(uint16_t Xstart, uint16_t Ystart, uint16_t Xend, uint16_t Yend, uint16_t Color,uint16_t LineWidth);
     void epd_paint_drawRectangle(uint16_t Xstart, uint16_t Ystart, uint16_t Xend, uint16_t Yend, uint16_t Color, uint8_t mode);
     void epd_paint_drawCircle(uint16_t X_Center, uint16_t Y_Center, uint16_t Radius, uint16_t Color, uint8_t mode);
+    void epd_paint_drawSemiCircle(uint16_t X_Center, uint16_t Y_Center, uint16_t Radius, uint16_t Color, uint8_t mode, uint8_t semicircleMode, uint16_t LineWidth);
+    void epd_paint_drawSemiEllipse(uint16_t X_Center, uint16_t Y_Center, uint16_t RadiusX, uint16_t RadiusY, uint16_t Color, uint8_t mode, uint8_t semicircleMode, uint16_t LineWidth);
     void epd_paint_showChar(uint16_t x, uint16_t y, uint16_t chr, uint16_t size1, uint16_t color);
     void epd_paint_showString(uint16_t x, uint16_t y, uint8_t *chr, uint16_t size1, uint16_t color);
     void epd_paint_showNum(uint16_t x, uint16_t y, uint32_t num, uint16_t len, uint16_t size1, uint16_t color);

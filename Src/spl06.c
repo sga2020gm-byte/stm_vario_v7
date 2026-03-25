@@ -5,6 +5,7 @@
 
 const uint32_t scale_factor [] = {524288UL, 1572864UL, 3670016UL, 7864320UL, 253952UL,
                                   516096UL, 1040384UL, 2088960UL};
+/* Таблица масштабных коэффициентов из datasheet для OSR x1..x128. */
 
 extern I2C_HandleTypeDef hi2c1;
 
@@ -191,7 +192,6 @@ float spl06_ReadPressure (void)
 
 float pascalToCentimeter(float pressurePa) {
     const float P0 = 101325.0f;
-    const float SCALE = 44330.0f; // T0 / L
 
     if (pressurePa <= 0.0f)
         return 0.0f;

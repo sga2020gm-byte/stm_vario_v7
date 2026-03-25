@@ -7,7 +7,12 @@
 #include "stdint.h"
 
 #include "epaper.h"
-#include "main.h"
+
+/*
+ * Набор процедур рисования векторных глифов для e-paper.
+ * Каждый символ строится из примитивов (линии/дуги/эллипсы),
+ * чтобы масштабироваться без bitmap-шрифтов.
+ */
 
 
 void vector_A(uint16_t x, uint16_t y, uint16_t size1, uint16_t color,uint16_t LineWidth){
@@ -460,11 +465,11 @@ void vector_9(uint16_t x, uint16_t y, uint16_t size1, uint16_t color, uint16_t L
 void vector_point(uint16_t x, uint16_t y, uint16_t size1, uint16_t color, uint16_t LineWidth){
 	epd_paint_drawSemiCircle(x+size1/2, y + size1, 3, color, 1, 3, LineWidth);
 }
-void vector_minus(x,y,size1,color,LineWidth){
+void vector_minus(uint16_t x, uint16_t y, uint16_t size1, uint16_t color, uint16_t LineWidth){
 	uint16_t width = size1 / 2;
 	epd_paint_drawLine(x, y + size1/2, x+width, y + size1/2, color, LineWidth);
 }
-void vector_plus(x,y,size1,color,LineWidth){
+void vector_plus(uint16_t x, uint16_t y, uint16_t size1, uint16_t color, uint16_t LineWidth){
 	uint16_t width = size1 / 2;
 	epd_paint_drawLine(x, y + size1/2, x+width, y + size1/2, color, LineWidth);
 	epd_paint_drawLine(x+width/2, y+size1/4, x+width/2, y + size1*0.75, color, LineWidth);
@@ -473,7 +478,7 @@ void vector_plus(x,y,size1,color,LineWidth){
 void epd_paint_showChar_vector(uint16_t x, uint16_t y, uint16_t chr, uint16_t size1, uint16_t color){
 	uint16_t LineWidth;
 	LineWidth = size1/10;
-	if (chr !="" && chr !='.'){
+	if (chr != ' ' && chr != '.'){
 		epd_paint_drawRectangle(x-1, y-1, x+size1*0.75+1, y+size1+2, EPD_COLOR_WHITE, 1);
 	}
 	if (LineWidth == 0) LineWidth = 1;
