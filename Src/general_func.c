@@ -8,19 +8,10 @@
 uint32_t upd_time;
 extern TIM_HandleTypeDef htim1;
 
-
-
-
-
 void display_full_upd(){
 	if ((upd_time+10000)<HAL_GetTick()||HAL_GetTick()<20000){ //переодическая отчистка дисплея
-		//epd_paint_newimage(image_bw_ref, EPD_W, EPD_H, EPD_ROTATE_180, EPD_COLOR_WHITE);
-		  //epd_init();
-		  //epd_paint_clear(EPD_COLOR_WHITE);
-		  //отрисовка полей отображения заново
 		  epd_paint_drawLine(100,0,100,200,EPD_COLOR_BLACK,3);
 		  epd_paint_drawLine(100,100,199,100,EPD_COLOR_BLACK,3);
-		  //epd_displayBW(ref);
 		  epd_update();
 		  upd_time = HAL_GetTick();
 		  epd_init_partial();
@@ -35,8 +26,6 @@ void climb_calc(uint16_t *altitude,int16_t *climb_SNpS)
 	static float climb_float;
 	static float alt_float;
 	static uint16_t alt_int;
-	static float pres_test;
-	pres_test = spl06_ReadPressure();
 	static int16_t climb_int;
 	if (last_time+10<HAL_GetTick()){
 		now_time = HAL_GetTick();
@@ -68,7 +57,6 @@ void display_inform(uint32_t altitude, int16_t climb_SNpS, uint8_t *text, uint8_
     static uint32_t old_time_view = 0;
 
     if ((HAL_GetTick() - 300) > old_time_view) {
-        //epd_paint_clear(EPD_COLOR_WHITE);
         epd_paint_drawLine(100, 100, 100, 199, EPD_COLOR_BLACK, 3);
         epd_paint_drawLine(0, 100, 199, 100, EPD_COLOR_BLACK, 3);
 
@@ -128,33 +116,6 @@ void display_inform(uint32_t altitude, int16_t climb_SNpS, uint8_t *text, uint8_
         old_time_view = HAL_GetTick();
     }
 }
-/*void display_inform(uint32_t altitude, int16_t climb_SNpS, uint8_t *text, uint8_t* image_bw)
-{
-	static uint32_t old_time_view = 0;
-	if ((HAL_GetTick()-300) > old_time_view){
-    //epd_paint_clear(EPD_COLOR_WHITE);
-    epd_paint_drawLine(100, 100, 100, 199, EPD_COLOR_BLACK, 3);
-    epd_paint_drawLine(0, 100, 199, 100, EPD_COLOR_BLACK, 3);
-
-    // Форматирование climb_SNpS с одной цифрой после точки
-    uint16_t absolute_value = abs(climb_SNpS);
-    if (absolute_value >99){
-    	absolute_value = 99;
-    }
-
-    // Всегда выводим с одной цифрой после точки
-    uint16_t whole_part = absolute_value / 10;
-    uint16_t decimal_part = absolute_value % 10;
-    sprintf((char*)text, "%c%d%c%d", (climb_SNpS < 0) ? '-' : '+', whole_part,'.', decimal_part);
-
-    epd_paint_showString(40, 20, text, 50, EPD_COLOR_BLACK);
-
-    sprintf((char*)text, "%d", altitude);
-    epd_paint_showString(10,140, text, 25, EPD_COLOR_BLACK);
-    //epd_displayBW_partial(image_bw);
-    old_time_view = HAL_GetTick();
-	}
-}*/
 void display_fields(uint8_t* image_bw)
 {
 	  epd_paint_clear(EPD_COLOR_WHITE);

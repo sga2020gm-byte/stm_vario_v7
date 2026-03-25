@@ -14,12 +14,14 @@
 #define EPD_COLOR_BLACK 0x00
 
 
-void display_full_upd();// постоянное обновление дисплея на протяжении определенного времени
-void climb_calc(uint16_t *altitude,int16_t *climb_SNpS);//вычисление высоты и скороподъемности, фильтрация калманом
-void display_inform(uint32_t altitude, int16_t climb_SNpS,uint8_t *text, uint8_t*image_bw);// отображение информации на дисплее
+void display_full_upd(void); // постоянное обновление дисплея на протяжении определенного времени
+void climb_calc(uint16_t *altitude,int16_t *climb_SNpS); // вычисление высоты и скороподъемности, фильтрация калманом
+void display_inform(uint32_t altitude, int16_t climb_SNpS,uint8_t *text, uint8_t*image_bw); // отображение информации на дисплее
+void display_fields(uint8_t *image_bw);
 void Buzzer_Set(uint32_t frequency, uint8_t enable);
-#endif /* GENERAL_FUNC_H_ */
-void display_fields();
+void Buzzer_inform(int16_t climb);
 void Buzzer_inform_v2(int16_t climb);
 void Check_Long_Press(uint8_t *image_bw);
 void turn_of(uint8_t *image_bw);
+
+#endif /* GENERAL_FUNC_H_ */

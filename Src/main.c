@@ -50,7 +50,6 @@ TIM_HandleTypeDef htim1;
 UART_HandleTypeDef huart3;
 
 /* USER CODE BEGIN PV */
-float pres;
 uint8_t turn_of_flag = 0;
 /* USER CODE END PV */
 
@@ -82,33 +81,44 @@ uint8_t image_bw[EPD_W_BUFF_SIZE * EPD_H];
 uint8_t text[25];
 /* USER CODE END 0 */
 uint32_t altitude = 0;
-float altitude_test = 0;
 int16_t climb = 0;
-//uint16_t cntr;
 uint32_t cycle_time = 0;
 uint32_t time_old = 0;
-uint8_t q_count = 0;
-uint32_t cb_cnt = 0;
 uint8_t baro_id = 0;
 volatile uint32_t systick_counter;
-void (*callback_30ms)(void) = NULL;
-uint8_t baro_flag;
+void (*callback_baro)(void) = NULL;
+uint8_t baro_init_ok = 0;
+
+#define BARO_INIT_RETRIES      5U
+#define BARO_INIT_DELAY_MS     50U
+#define BARO_SANITY_ALT_CM     500000.0f
+#define UI_REFRESH_PERIOD_MS   60U
 /**
   * @brief  The application entry point.
   * @retval int
   */
-void init_30ms_callback(void (*func)(void)) {
-    callback_30ms = func;
+void init_baro_callback(void (*func)(void)) {
+    callback_baro = func;
 }
 
-void my_30ms_function(void) {
-    // Ваш код здесь
-	if (HAL_GetTick()>1000){
-	climb_calc(&altitude, &climb);
-	pres = pascalToCentimeter(spl06_ReadPressure());
-	cb_cnt++;
-	baro_flag = 0;
+void baro_poll_callback(void) {
+	if (HAL_GetTick() > 1000U){
+		climb_calc(&altitude, &climb);
 	}
+}
+
+static uint8_t baro_try_init(void)
+{
+	for (uint8_t i = 0; i < BARO_INIT_RETRIES; i++) {
+		if (spl06_Init() == OK &&
+			spl06_SetOSR(SAMPLING_X1, SAMPLING_X1) == OK &&
+			spl06_SetMode(MODE_BACKGND_BOTH) == OK &&
+			spl06_ID_read() == 16) {
+			return 1;
+		}
+		HAL_Delay(BARO_INIT_DELAY_MS);
+	}
+	return 0;
 }
 /**
   * @brief  The application entry point.
@@ -146,11 +156,8 @@ int main(void)
   MX_SPI1_Init();
   MX_TIM1_Init();
   MX_USART3_UART_Init();
-  spl06_Init();
-  HAL_Delay(10);
-  	spl06_SetOSR(RATE_X8, RATE_X8);
-  	spl06_SetMode(MODE_BACKGND_BOTH);
-  	filter_init();
+  baro_init_ok = baro_try_init();
+  filter_init();
   /* USER CODE BEGIN 2 */
 
 
@@ -164,23 +171,15 @@ int main(void)
   	HAL_Delay(10);
   	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_13, 1);
 
-  	init_30ms_callback(my_30ms_function);
+  	init_baro_callback(baro_poll_callback);
 
 
 
-	/*while(HAL_GetTick()<5000){// долгая циклическая отчитка дисплея на протяжении 15 секунд
-		epd_paint_clear(EPD_COLOR_WHITE);
-		epd_update();
-	}*/
-
-
-  	if(pascalToCentimeter(spl06_ReadPressure())>500000){
+  	if(!baro_init_ok || pascalToCentimeter(spl06_ReadPressure()) > BARO_SANITY_ALT_CM){
   		epd_paint_showString(10, 85, "BAD PRES", 25, EPD_COLOR_BLACK);
   		epd_paint_showString(10, 120, "TRY AGN", 25, EPD_COLOR_BLACK);
   		epd_displayBW_partial(image_bw);
-  		spl06_Init();
-  	  	spl06_SetOSR(RATE_X8, RATE_X8);
-  	  	spl06_SetMode(MODE_BACKGND_BOTH);
+  		baro_init_ok = baro_try_init();
   	  	HAL_Delay(800);
   	}
 
@@ -199,15 +198,8 @@ int main(void)
 	HAL_Delay(2000);
 	epd_paint_clear(EPD_COLOR_WHITE);
 	display_fields(image_bw);
-	//HAL_GPIO_WritePin(GPIOA, GPIO_PIN_11, SET);
-	//epd_paint_selectimage(image_bw);
 	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_11, 1);
 	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_12, 1);
-
-
-	//static uint32_t altitude;
-	//static float altitude_test;
-	//static int16_t climb;
 
 	HAL_Delay(150);
 	epd_paint_clear(EPD_COLOR_WHITE);
@@ -222,9 +214,8 @@ int main(void)
 	  {
 
 		  cycle_time = HAL_GetTick()-time_old;
-		  if (cycle_time >60){
+		  if (cycle_time > UI_REFRESH_PERIOD_MS){
 		  display_inform(altitude/100, climb/10, text, image_bw);
-		  //Buzzer_inform(climb/10);
 		  Buzzer_inform(10);
 		  time_old = HAL_GetTick();
 		  Check_Long_Press(image_bw);

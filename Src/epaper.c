@@ -120,7 +120,7 @@ void epd_cs_reset()
 
 uint8_t epd_is_busy()
 {
-	HAL_GPIO_ReadPin(BUSY_GPIO_Port, BUSY_Pin) == RESET ? 0 : 1;
+	return (HAL_GPIO_ReadPin(BUSY_GPIO_Port, BUSY_Pin) == RESET) ? 0 : 1;
 }
 
 //------попытка отправки данных/команды из очереди-----
@@ -161,21 +161,28 @@ void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi)
     spi_try_start_next();
 }
 
-//---------отправка команды из очереди--------
-void epd_write_reg(uint8_t reg)
+/**
+ * @brief Push one byte into SPI DMA queue.
+ * @return 1 if queued, 0 if queue is full.
+ */
+static uint8_t epd_queue_push(spi_tx_type_t type, uint8_t byte)
 {
-
-    if (q_count >= SPI_QUEUE_SIZE)
+    if (q_count >= SPI_QUEUE_SIZE) {
         return 0;
-    spi_queue[q_head].type = SPI_TX_CMD;
-    spi_queue[q_head].byte = reg;
+    }
+    spi_queue[q_head].type = type;
+    spi_queue[q_head].byte = byte;
 
     q_head = (q_head + 1) % SPI_QUEUE_SIZE;
     q_count++;
-
     spi_try_start_next();
-
     return 1;
+}
+
+//---------отправка команды из очереди--------
+void epd_write_reg(uint8_t reg)
+{
+    (void)epd_queue_push(SPI_TX_CMD, reg);
 }
 
 
@@ -183,32 +190,12 @@ void epd_write_reg(uint8_t reg)
 
 void epd_write_data(uint8_t data)
 {
-    if (q_count >= SPI_QUEUE_SIZE)
-        return 0;
-    spi_queue[q_head].type = SPI_TX_DATA;
-    spi_queue[q_head].byte = data;
-
-    q_head = (q_head + 1) % SPI_QUEUE_SIZE;
-    q_count++;
-
-    spi_try_start_next();
-
-    return 1;
+    (void)epd_queue_push(SPI_TX_DATA, data);
 }
 
 void _epd_write_data(uint8_t data)
 {
-    if (q_count >= SPI_QUEUE_SIZE)
-        return 0;
-    spi_queue[q_head].type = SPI_TX_DATA;
-    spi_queue[q_head].byte = data;
-
-    q_head = (q_head + 1) % SPI_QUEUE_SIZE;
-    q_count++;
-
-    spi_try_start_next();
-
-    return 1;
+    (void)epd_queue_push(SPI_TX_DATA, data);
 }
 
 /*void _epd_write_data_over()

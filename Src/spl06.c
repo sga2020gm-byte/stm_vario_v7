@@ -5,6 +5,7 @@
 
 const uint32_t scale_factor [] = {524288UL, 1572864UL, 3670016UL, 7864320UL, 253952UL,
                                   516096UL, 1040384UL, 2088960UL};
+/* Таблица масштабных коэффициентов из datasheet для OSR x1..x128. */
 
 extern I2C_HandleTypeDef hi2c1;
 
@@ -30,21 +31,21 @@ uint8_t spl06_Init (void)
 {
   uint8_t c_buff [18];
   uint8_t command;
-  uint8_t status = 1;
+  uint8_t status = 0;
   uint8_t count = 0;
 
   c_buff [0] = SPL06_SOFT_RESET;
   c_buff [1] = 0b1001;
-  HAL_I2C_Master_Transmit(&hi2c1, SPL06_ADDRESS, c_buff, 2, 100);
+  if (HAL_I2C_Master_Transmit(&hi2c1, SPL06_ADDRESS, c_buff, 2, 100) != HAL_OK) return TIMEOUT_ERR;
   HAL_Delay(10);
 
-  while (status != 0) //ожидание готовности калибровочных коэффициентов после перезагрузки
+  while (status != 0b11000000) // ожидание готовности коэффициентов и завершения self-init
   {
     command = SPL06_MEAS_CFG;
-    HAL_I2C_Master_Transmit(&hi2c1, SPL06_ADDRESS, &command, 1, I2C_FIRST_FRAME);
-    HAL_I2C_Master_Receive(&hi2c1, SPL06_ADDRESS, c_buff, 1, 100);
+    if (HAL_I2C_Master_Transmit(&hi2c1, SPL06_ADDRESS, &command, 1, 100) != HAL_OK) return TIMEOUT_ERR;
+    if (HAL_I2C_Master_Receive(&hi2c1, SPL06_ADDRESS, c_buff, 1, 100) != HAL_OK) return TIMEOUT_ERR;
 
-    status = c_buff[0] & 0b00000000;
+    status = c_buff[0] & 0b11000000; // COEF_RDY + SENSOR_RDY
     count++;
     if (count > 100) return TIMEOUT_ERR;
     HAL_Delay (10);
@@ -54,8 +55,8 @@ uint8_t spl06_Init (void)
   /*Получение калибровочных коэффициентов*/
   command = SPL06_COEF_C0;
 
-  HAL_I2C_Master_Transmit(&hi2c1, SPL06_ADDRESS, &command, 1, I2C_FIRST_FRAME);
-  HAL_I2C_Master_Receive(&hi2c1, SPL06_ADDRESS, c_buff, 18, 100);
+  if (HAL_I2C_Master_Transmit(&hi2c1, SPL06_ADDRESS, &command, 1, 100) != HAL_OK) return TIMEOUT_ERR;
+  if (HAL_I2C_Master_Receive(&hi2c1, SPL06_ADDRESS, c_buff, 18, 100) != HAL_OK) return TIMEOUT_ERR;
 
   spl06_calib_data.c0 = ((int16_t)c_buff[0] << 4) + ((c_buff[1] >> 4) & 0b00001111);
     if(spl06_calib_data.c0 & (1 << 11))
@@ -97,10 +98,11 @@ uint8_t spl06_SetMode (uint8_t sensor_mode)
   uint8_t control_buff [1];
   buff [0] = SPL06_MEAS_CFG;
   buff [1] = sensor_mode;
-  HAL_I2C_Master_Transmit(&hi2c1, SPL06_ADDRESS, buff, 2, 100);
+  if (HAL_I2C_Master_Transmit(&hi2c1, SPL06_ADDRESS, buff, 2, 100) != HAL_OK) return TIMEOUT_ERR;
   //проверка
-  HAL_I2C_Master_Transmit(&hi2c1, SPL06_ADDRESS, &buff[0], 1, 100);
-  HAL_I2C_Master_Receive(&hi2c1, SPL06_ADDRESS, control_buff, 1, 100);
+  if (HAL_I2C_Master_Transmit(&hi2c1, SPL06_ADDRESS, &buff[0], 1, 100) != HAL_OK) return TIMEOUT_ERR;
+  if (HAL_I2C_Master_Receive(&hi2c1, SPL06_ADDRESS, control_buff, 1, 100) != HAL_OK) return TIMEOUT_ERR;
+  if ((control_buff[0] & 0x07) != sensor_mode) return TIMEOUT_ERR;
 
     return OK;
 }
@@ -116,21 +118,21 @@ uint8_t spl06_SetOSR (uint8_t press_osr, uint8_t temp_osr)
     t_scale = scale_factor [temp_osr];
 
     buff[0] = SPL06_PSR_CFG;
-    HAL_I2C_Master_Transmit(&hi2c1, SPL06_ADDRESS, &buff[0], 1, 100);
-    HAL_I2C_Master_Receive(&hi2c1, SPL06_ADDRESS, &buff[1], 1, 100);
+    if (HAL_I2C_Master_Transmit(&hi2c1, SPL06_ADDRESS, &buff[0], 1, 100) != HAL_OK) return TIMEOUT_ERR;
+    if (HAL_I2C_Master_Receive(&hi2c1, SPL06_ADDRESS, &buff[1], 1, 100) != HAL_OK) return TIMEOUT_ERR;
 
-    buff[1] = (0b0110 << 4) | press_osr;
+    buff[1] = (0b0111 << 4) | press_osr; // PM_RATE=128Hz (максимальная частота по давлению)
 
-    HAL_I2C_Master_Transmit(&hi2c1, SPL06_ADDRESS, buff, 2, 100);
-    HAL_I2C_Master_Receive(&hi2c1, SPL06_ADDRESS, control_buff, 2, 100);
+    if (HAL_I2C_Master_Transmit(&hi2c1, SPL06_ADDRESS, buff, 2, 100) != HAL_OK) return TIMEOUT_ERR;
+    if (HAL_I2C_Master_Receive(&hi2c1, SPL06_ADDRESS, control_buff, 2, 100) != HAL_OK) return TIMEOUT_ERR;
 
     buff[0] = SPL06_TMP_CFG;
-    HAL_I2C_Master_Transmit(&hi2c1, SPL06_ADDRESS, &buff[0], 1, 100);
-    HAL_I2C_Master_Receive(&hi2c1, SPL06_ADDRESS, &buff[1], 1, 100);
+    if (HAL_I2C_Master_Transmit(&hi2c1, SPL06_ADDRESS, &buff[0], 1, 100) != HAL_OK) return TIMEOUT_ERR;
+    if (HAL_I2C_Master_Receive(&hi2c1, SPL06_ADDRESS, &buff[1], 1, 100) != HAL_OK) return TIMEOUT_ERR;
 
-    buff[1] = ((0b0100 << 4) | temp_osr) | 1<<7;
+    buff[1] = ((0b0000 << 4) | temp_osr) | 1<<7; // TMP_RATE=1Hz + TMP_EXT=1 (температура вторична)
 
-    HAL_I2C_Master_Transmit(&hi2c1, SPL06_ADDRESS, buff, 2, 100);
+    if (HAL_I2C_Master_Transmit(&hi2c1, SPL06_ADDRESS, buff, 2, 100) != HAL_OK) return TIMEOUT_ERR;
 
     buff[0] = SPL06_CFG_REG;
 
@@ -141,12 +143,8 @@ uint8_t spl06_SetOSR (uint8_t press_osr, uint8_t temp_osr)
      else bit_shift = bit_shift & 0b11111011;
      if (temp_osr >= SAMPLING_X16)  bit_shift = bit_shift | 1 << 3;
      else bit_shift = bit_shift & 0b11110111;
-     buff[1] = 0x00;
-     HAL_I2C_Master_Transmit(&hi2c1, SPL06_ADDRESS, buff, 2, 100);
-
-     buff[0] = SPL06_MEAS_CFG;
-     //buff[1] = 0x07;   // continuous P + T
-     HAL_I2C_Master_Transmit(&hi2c1, SPL06_ADDRESS, buff, 2, 100);
+     buff[1] = bit_shift;
+     if (HAL_I2C_Master_Transmit(&hi2c1, SPL06_ADDRESS, buff, 2, 100) != HAL_OK) return TIMEOUT_ERR;
 
     return OK;
 }
@@ -194,7 +192,6 @@ float spl06_ReadPressure (void)
 
 float pascalToCentimeter(float pressurePa) {
     const float P0 = 101325.0f;
-    const float SCALE = 44330.0f; // T0 / L
 
     if (pressurePa <= 0.0f)
         return 0.0f;
